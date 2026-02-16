@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="recycler_view_acoes" type="id" />
+    <item name="button_filtrar" type="id" />
+    <item name="button_selecionar_interesses" type="id" />
+    <item name="button_salvar_perfil" type="id" />
+    <item name="button_trocar_senha" type="id" />
+    <item name="edit_text_perfil_telefone" type="id" />
+    <item name="edit_text_perfil_email" type="id" />
+    <item name="edit_text_perfil_nome" type="id" />
+    <!-- Se você tiver outros IDs, adicione-os aqui no mesmo formato: <item name="seu_id" type="id" /> -->
+</resources>
