@@ -1,131 +1,99 @@
 package impacta.plus.app;
 
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import impacta.plus.app.data.BancoRepository;
+import impacta.plus.app.databinding.FragmentPerfilBinding;
+import impacta.plus.app.mvp.perfil.PerfilContract;
+import impacta.plus.app.mvp.perfil.PerfilPresenter;
+import impacta.plus.app.utils.SessionManager;
 
-public class PerfilFragment extends Fragment {
+public class PerfilFragment extends Fragment implements PerfilContract.View {
 
-    private EditText nomeEditText;
-    private EditText emailEditText;
-    private EditText telefoneEditText;
-    private Button trocarSenhaButton;
-    private Button selecionarInteressesButton;
-    private Button salvarPerfilButton;
+    private FragmentPerfilBinding binding;
+    private PerfilContract.Presenter presenter;
+    private int loggedInUserId = -1;
 
-    private BancoController crud;
-    private int loggedInUserId = -1; // ID do usuário logado
-
-    public PerfilFragment() {
-        // Construtor vazio é necessário para Fragments
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        binding = FragmentPerfilBinding.inflate(inflater, container, false);
+        return binding.getRoot();
     }
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_perfil, container, false);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-        // Inicializar componentes da UI
-        nomeEditText = view.findViewById(R.id.edit_text_perfil_nome);
-        emailEditText = view.findViewById(R.id.edit_text_perfil_email);
-        telefoneEditText = view.findViewById(R.id.edit_text_perfil_telefone);
-        trocarSenhaButton = view.findViewById(R.id.button_trocar_senha);
-        selecionarInteressesButton = view.findViewById(R.id.button_selecionar_interesses);
-        salvarPerfilButton = view.findViewById(R.id.button_salvar_perfil);
+        // 1. Inicializar Dependências
+        SessionManager session = new SessionManager(requireContext());
+        loggedInUserId = session.getUserId();
+        presenter = new PerfilPresenter(this, new BancoRepository(requireContext()));
 
-        crud = new BancoController(getContext());
-
-        // Obter o ID do usuário logado
-        if (getContext() != null) {
-            SharedPreferences sharedPref = getContext().getSharedPreferences("user_session", Context.MODE_PRIVATE);
-            loggedInUserId = sharedPref.getInt("logged_in_user_id", -1);
-        }
-
-        if (loggedInUserId == -1) {
-            Toast.makeText(getContext(), "Erro: Usuário não logado para ver perfil.", Toast.LENGTH_LONG).show();
+        // 2. Carregar dados se o usuário estiver logado
+        if (loggedInUserId!= -1) {
+            presenter.loadUserProfile(loggedInUserId);
         } else {
-            carregarDadosUsuario(loggedInUserId); // Carrega os dados do perfil
+            showError("Erro de sessão. Faça login novamente.");
         }
 
-        // Listeners para botões (Trocar senha e Selecionar interesses são apenas visuais)
-        trocarSenhaButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(getContext(), "Funcionalidade de troca de senha em desenvolvimento!", Toast.LENGTH_SHORT).show();
-            }
+        // 3. Configurar Botões
+        binding.buttonSalvarPerfil.setOnClickListener(v -> {
+            String nome = binding.editTextPerfilNome.getText().toString();
+            String telefone = binding.editTextPerfilTelefone.getText().toString();
+            presenter.updateUserProfile(loggedInUserId, nome, telefone);
         });
 
-        selecionarInteressesButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(getContext(), "Funcionalidade de selecionar interesses em desenvolvimento!", Toast.LENGTH_SHORT).show();
-            }
-        });
+        binding.buttonTrocarSenha.setOnClickListener(v ->
+                Toast.makeText(getContext(), "Funcionalidade de troca de senha em breve!", Toast.LENGTH_SHORT).show()
+        );
 
-        salvarPerfilButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                salvarDadosUsuario(); // Salva as alterações
-            }
-        });
-
-        return view;
+        binding.buttonSelecionarInteresses.setOnClickListener(v ->
+                Toast.makeText(getContext(), "Seleção de interesses em breve!", Toast.LENGTH_SHORT).show()
+        );
     }
 
-    private void carregarDadosUsuario(int userId) {
-        // SQLiteDatabase db = null; // A instância de DB é gerida pelo BancoController agora
-        Cursor cursor = null;
-
-        try {
-            // Obter os dados do usuário do BancoController
-            cursor = crud.carregaUsuarioPorId(userId); // Vamos criar este método no BancoController
-
-            if (cursor != null && cursor.moveToFirst()) {
-                String nome = cursor.getString(cursor.getColumnIndexOrThrow(CriaBanco.NOME));
-                String email = cursor.getString(cursor.getColumnIndexOrThrow(CriaBanco.EMAIL));
-                String telefone = cursor.getString(cursor.getColumnIndexOrThrow(CriaBanco.TELEFONE));
-
-                nomeEditText.setText(nome);
-                emailEditText.setText(email);
-                telefoneEditText.setText(telefone);
-            } else {
-                Toast.makeText(getContext(), "Dados do usuário não encontrados.", Toast.LENGTH_LONG).show();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(getContext(), "Erro ao carregar dados do usuário: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-            // O BancoController gerencia o fechamento do DB para o carregaUsuarioPorId
-        }
+    @Override
+    public void showLoading() {
+        // Se quiser adicionar uma ProgressBar no layout depois, controle ela aqui
+        binding.buttonSalvarPerfil.setEnabled(false);
+        binding.buttonSalvarPerfil.setText("Salvando...");
     }
 
-    private void salvarDadosUsuario() {
-        String nome = nomeEditText.getText().toString();
-        String email = emailEditText.getText().toString(); // Email não é editável, mas pode ser pego para referência
-        String telefone = telefoneEditText.getText().toString();
+    @Override
+    public void hideLoading() {
+        binding.buttonSalvarPerfil.setEnabled(true);
+        binding.buttonSalvarPerfil.setText("Salvar Alterações");
+    }
 
-        if (nome.isEmpty() || telefone.isEmpty()) {
-            Toast.makeText(getContext(), "Nome e Telefone não podem ser vazios.", Toast.LENGTH_SHORT).show();
-            return;
-        }
+    @Override
+    public void showUserData(String nome, String email, String telefone) {
+        binding.editTextPerfilNome.setText(nome);
+        binding.editTextPerfilEmail.setText(email);
+        binding.editTextPerfilTelefone.setText(telefone);
 
-        // Chamar o método de atualização no BancoController
-        String resultado = crud.atualizaUsuario(loggedInUserId, nome, telefone); // Vamos criar este método
-        Toast.makeText(getContext(), resultado, Toast.LENGTH_LONG).show();
+        // O e-mail geralmente é fixo/chave de login, então desabilitamos a edição visualmente se quiser
+        // binding.editTextPerfilEmail.setEnabled(false);
+    }
+
+    @Override
+    public void showUpdateSuccess() {
+        Toast.makeText(getContext(), "Perfil atualizado com sucesso!", Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void showError(String message) {
+        Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        binding = null; // Evita vazamento de memória no ViewBinding
     }
 }
